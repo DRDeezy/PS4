@@ -1,5 +1,5 @@
 getwd
-setwd("/Users/Meilis/Desktop/PS4")
+setwd("/Users/M/Desktop/PS4")
 #install.packages("urca")
 #install.packages("forecast")
 #install.packages('forecast', dependencies=TRUE, repos='http://cran.rstudio.com/')
