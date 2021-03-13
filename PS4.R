@@ -37,6 +37,7 @@ df.PS$Euro_log_diff <- c(1, diff(df.PS$Euro_log))
 acf(df.PS$Euro_log, lag.max = 50) #not decreasing - clearly non-stationary
 acf(diff(df.PS$Euro_log), lag.max = 50) #looks more like stationary
 
+
 #ADF test
 # adf test: nodiff
 adf0.1 <- ur.df(df.PS$Euro_log, type = "none", selectlags = c("BIC")) # urca package
@@ -55,6 +56,9 @@ adf1.3 <- ur.df(diff(df.PS$Euro_log, 1), type = "trend", selectlags = c("BIC"))
 summary(adf1.3)
 
 # PP test (H_0 - unit root)
+PP.test(df.PS$Euro_log, lshort = TRUE)# non-stationary
+PP.test(df.PS$Euro_log, lshort = FALSE)# non-stationary
+
 PP.test(diff(df.PS$Euro_log), lshort = TRUE)# non-stationary
 PP.test(diff(df.PS$Euro_log), lshort = FALSE)# non-stationary
 
@@ -65,6 +69,7 @@ Box.test(diff(df.PS$Euro_log), lag = 60, fitdf = 0, type = "Lj")
 
 # Let's find the best mean model
 model.arima <- auto.arima(df.PS$Euro_log_diff[2:3518], stepwise = FALSE, approximation = FALSE) #можно поиграться с stepwise, approx
+model.arima1 <- auto.arima(df.PS$Euro_log_diff[2:3518], stepwise = FALSE, approximation = FALSE) #можно поиграться
 summary(model.arima)
 
 #model.arima <- auto.arima(df.PS$Euro_log_diff[2:3518], ic = 'bic')
@@ -85,11 +90,6 @@ garch.spec <- ugarchspec(variance.model = list(model = "sGARCH", # can be differ
 
 garch.model <- ugarchfit(spec = garch.spec, data = df.PS$Euro_log_diff[2:3518])
 garch.model
-
-#par(mfrow=c(2,1))
-#plot(garch.model, which=2)
-#plot(garch.model, which=1)
-#par(mfrow=c(1,1))
 
 
 ############################################################
@@ -122,6 +122,9 @@ adf1.3 <- ur.df(diff(df.PS$SP500_log, 1), type = "trend", selectlags = c("BIC"))
 summary(adf1.3)
 
 # PP test (H_0 - unit root)
+PP.test(df.PS$SP500_log, lshort = TRUE)# non-stationary
+PP.test(df.PS$SP500_log, lshort = FALSE)# non-stationary
+
 PP.test(diff(df.PS$SP500_log), lshort = TRUE)# non-stationary
 PP.test(diff(df.PS$SP500_log), lshort = FALSE)# non-stationary
 
@@ -132,6 +135,7 @@ Box.test(diff(df.PS$SP500_log), lag = 60, fitdf = 0, type = "Lj")
 
 # Let's find the best mean model
 model.arima <- auto.arima(df.PS$SP500_log_diff[2:3518], stepwise = FALSE, approximation = FALSE) #можно поиграться с stepwise, approx
+model.arima2 <- auto.arima(df.PS$SP500_log_diff[2:3518], stepwise = FALSE, approximation = FALSE) 
 summary(model.arima)
 
 #model.arima <- auto.arima(df.PS$Euro_log_diff[2:3518], ic = 'bic')
@@ -167,15 +171,15 @@ garch.model
 ############################################################
 
 bp_ts1 <- breakpoints(ts(df.PS$Euro_log) ~ 1)
-summary(bp_ts)
-bp_ts
-plot(bp_ts)
+summary(bp_ts1)
+bp_ts1
+plot(bp_ts1)
 plot(ts(df.PS$Euro_log))
-lines(bp_ts)
+lines(bp_ts1)
 
 
 #VARINCE
-m1 <- gefp(ts(df.PS$Euro_log) ~ 1, fit = glm, vcov = meatHAC, sandwich = FALSE)
+m1 <- gefp(ts(model.arima1$residuals^2) ~ 1, fit = glm, vcov = meatHAC, sandwich = FALSE)
 plot(m1, aggregate = FALSE)
 
 ############################################################
@@ -183,14 +187,14 @@ plot(m1, aggregate = FALSE)
 ############################################################
 
 bp_ts2 <- breakpoints(ts(df.PS$SP500_log) ~ 1)
-summary(bp_ts)
-bp_ts
-plot(bp_ts)
-plot(ts(df.PS$Euro_log))
-lines(bp_ts)
+summary(bp_ts2)
+bp_ts2
+plot(bp_ts2)
+plot(ts(df.PS$SP500_log))
+lines(bp_ts2)
 
 #VARINCE
-m2 <- gefp(ts(df.PS$SP500_log) ~ 1, fit = glm, vcov = meatHAC, sandwich = FALSE)
+m2 <- gefp(ts(model.arima2$residuals^2) ~ 1, fit = glm, vcov = meatHAC, sandwich = FALSE)
 plot(m2, aggregate = FALSE)
 
 ############################################################
@@ -207,8 +211,8 @@ grangertest(df.PS$SP500_log, df.PS$Euro_log, order=5)
 
 #Checking cointegration: expect no cointegration. Refer to tests for unit roots.
 par(mfrow=c(2,1))
-plot(df.PS$SP500_log, which=1)
-plot(df.PS$Euro_log, which=2)
+plot(ts(df.PS$SP500_log), which=1)
+plot(ts(df.PS$Euro_log), which=2)
 
 df.PS_2 <- data.frame(df.PS$Euro_log, stringsAsFactors = TRUE)
 df.PS_2$SP500_log <- data.frame(df.PS$SP500_log, stringsAsFactors = TRUE)#creating new data file with only logs
@@ -218,7 +222,7 @@ colnames(df.PS_2) <- c("Euro_log","SP500_log")
 ############################################################
 #autoplot(ts(df.PS_2), facets = TRUE) + ylab('')
 
-# select p oreder
+# select p order
 VARselect(df.PS_2, lag.max=7, type = "const")
 VARselect(df.PS_2, lag.max = 7, type = "const")$selection
 # estimated 3 lags by AIC
@@ -230,23 +234,7 @@ summary(model)
 ############################################################
 #VECM specification
 ############################################################
-# Determining the cointegration rank 
-# r* is the number of cointegration vectors
-# H_0: r = r* < k
-# H_a: r = r* + 1
-# testing proceeds sequentially for r* = 1,2,.. 
-# with the first non-rejection used as an estimator for r
-# since p=5, thus K=5
 
-# select p oreder
-VARselect(df.PS_2, lag.max=7, type = "const")
-VARselect(df.PS_2, lag.max = 7, type = "const")$selection
-# estimated 3 lags by AIC!
-
-# estimate VAR model
-model <- VAR(df.PS_2, p = 3, type = "const")
-summary(model)
-head(df.PS_2)
 
 #Perform maximum eigenvalue test
 coint_h11 <- ca.jo(df.PS_2, type = "eigen", K = 5, spec = "transitory")
